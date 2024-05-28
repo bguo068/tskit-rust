@@ -344,6 +344,30 @@ impl TreeSequence {
         ))
     }
 
+    /// Truncate the TreeSequence to specified genome intervals.
+    ///
+    /// # Error
+    /// Any errors from the C API propagate. An [TskitError::RangeError] will
+    /// occur when `intervals` are not sorted.
+    ///
+    /// # Example
+    /// ```rust
+    /// use tskit::TreeSequence;
+    /// let mut ts = TreeSequence::load("testdata/1.trees").expect("error loading ts");
+    /// let new_ts = ts.keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true).unwrap();
+    /// ```
+    ///
+    /// Note that no new provenance will be appended.
+    pub fn keep_intervals(
+        self,
+        intervals: impl Iterator<Item = (Position, Position)>,
+        simplify: bool,
+    ) -> Result<Self, TskitError> {
+        let mut tables = self.dump_tables()?;
+        tables.keep_intervals(intervals, simplify)?;
+        Self::new(tables, TreeSequenceFlags::default().build_indexes())
+    }
+
     #[cfg(feature = "provenance")]
     #[cfg_attr(doc_cfg, doc(cfg(feature = "provenance")))]
     /// Add provenance record with a time stamp.

@@ -550,3 +550,67 @@ mod test_metadata_round_trips {
         );
     }
 }
+
+#[test]
+fn test_keep_intervals() {
+    use tskit::{TableEqualityOptions, TreeSequence};
+
+    // test on tables
+    let mut tables1 = TreeSequence::load("./testdata/1.trees")
+        .unwrap()
+        .dump_tables()
+        .unwrap();
+    // run keep_intervals
+    tables1
+        .keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true)
+        .unwrap();
+    // expected tree sequences
+    let tables2 = TreeSequence::load("./testdata/2.trees")
+        .unwrap()
+        .dump_tables()
+        .unwrap();
+
+    assert!(tables1.equals(&tables2, TableEqualityOptions::all()));
+
+    // test on tables
+    let mut tables1 = TreeSequence::load("./testdata/1.trees")
+        .unwrap()
+        .dump_tables()
+        .unwrap();
+    // run keep_intervals
+    tables1
+        .keep_intervals(
+            vec![(10.0.into(), 40.0.into()), (100.0.into(), 200.0.into())].into_iter(),
+            true,
+        )
+        .unwrap();
+    // expected tree sequences
+    let tables2 = TreeSequence::load("./testdata/3.trees")
+        .unwrap()
+        .dump_tables()
+        .unwrap();
+
+    assert!(tables1.equals(&tables2, TableEqualityOptions::all()));
+
+    // test on treeseq
+    let ts1 = TreeSequence::load("./testdata/1.trees")
+        .unwrap()
+        .keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true)
+        .unwrap();
+    let ts2 = TreeSequence::load("./testdata/2.trees").unwrap();
+    ts1.dump_tables()
+        .unwrap()
+        .equals(&ts2.dump_tables().unwrap(), TableEqualityOptions::all());
+
+    let ts1 = TreeSequence::load("./testdata/1.trees")
+        .unwrap()
+        .keep_intervals(
+            vec![(10.0.into(), 40.0.into()), (100.0.into(), 200.0.into())].into_iter(),
+            true,
+        )
+        .unwrap();
+    let ts3 = TreeSequence::load("./testdata/3.trees").unwrap();
+    ts1.dump_tables()
+        .unwrap()
+        .equals(&ts3.dump_tables().unwrap(), TableEqualityOptions::all());
+}
