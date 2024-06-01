@@ -32,7 +32,6 @@ use crate::TskReturnValue;
 use crate::{EdgeId, NodeId};
 use ll_bindings::tsk_id_t;
 use ll_bindings::tsk_size_t;
-use streaming_iterator::StreamingIterator;
 
 /// A table collection.
 ///
@@ -1389,30 +1388,29 @@ impl TableCollection {
     ///
     /// # Example
     /// ```rust
-    /// # use tskit::test_data::simulation::simulate_two_treesequences;
-    /// # let intervals = vec![(10.0, 20.0), (700.0, 850.0)];
+    /// # use tskit::*;
+    /// # let snode = NodeFlags::new_sample();
+    /// # let anode = NodeFlags::default();
+    /// # let pop = PopulationId::NULL;
+    /// # let ind = IndividualId::NULL;
     /// # let seqlen = 100.0;
-    /// # let popsize = 100;
-    /// # let totle_generations = 50;
-    /// # let popsplit_time = 10;
-    /// # let seed = 123;
-
-    /// # let (full_trees, _exepected) = simulate_two_treesequences(
-    /// #     seqlen,
-    /// #     popsize,
-    /// #     totle_generations,
-    /// #     popsplit_time,
-    /// #     &intervals,
-    /// #     seed,
-    /// # )
-    /// # .unwrap();
-    /// #
-    /// # let tables = full_trees.dump_tables().unwrap();
+    /// # let (t0, t10) = (0.0, 10.0);
+    /// # let (left, right) = (0.0, 100.0);
+    /// # let sim_opts = SimplificationOptions::default();
     ///
-    /// let _trucated_tables = tables
-    ///     .keep_intervals(intervals.iter().map(|a| *a), true)
-    ///     .unwrap()
-    ///     .unwrap();
+    /// # let mut tables = TableCollection::new(seqlen).unwrap();
+    /// # let child1 = tables.add_node(snode, t0, pop, ind).unwrap();
+    /// # let child2 = tables.add_node(snode, t0, pop, ind).unwrap();
+    /// # let parent = tables.add_node(anode, t10, pop, ind).unwrap();
+    ///
+    /// # tables.add_edge(left, right, parent, child1).unwrap();
+    /// # tables.add_edge(left, right, parent, child2).unwrap();
+    /// # tables.full_sort(TableSortOptions::all()).unwrap();
+    /// # tables.simplify(&[child1, child2], sim_opts, false).unwrap();
+    /// # tables.build_index().unwrap();
+    ///
+    /// let intervals = [(0.0, 10.0), (90.0, 100.0)].into_iter();
+    /// tables.keep_intervals(intervals, true).unwrap().unwrap();
     /// ```
     ///
     /// Note that no new provenance will be appended.
@@ -1424,6 +1422,7 @@ impl TableCollection {
     where
         P: Into<Position>,
     {
+        use streaming_iterator::StreamingIterator;
         let mut tables = self;
         // use tables from sys to allow easier process with metadata
         let options = 0;
