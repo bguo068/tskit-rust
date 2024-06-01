@@ -551,66 +551,46 @@ mod test_metadata_round_trips {
     }
 }
 
-#[test]
-fn test_keep_intervals() {
-    use tskit::{TableEqualityOptions, TreeSequence};
+#[cfg(test)]
+mod keep_intervals {
+    use tskit::test_data::simulation::simulate_two_treesequences;
+    #[test]
+    fn test_keep_intervals() {
+        use tskit::TableEqualityOptions;
+        let intervals_lst = vec![
+            // vec![(0.0, 1.0)],
+            vec![(10.0, 20.0), (700.0, 850.0)],
+            // vec![(900.0, 1000.0)],
+        ];
+        let seqlen = 1000.0;
+        let popsize = 100;
+        let totle_generations = 500;
+        let popsplit_time = 100;
 
-    // test on tables
-    let mut tables1 = TreeSequence::load("./testdata/1.trees")
-        .unwrap()
-        .dump_tables()
-        .unwrap();
-    // run keep_intervals
-    tables1
-        .keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true)
-        .unwrap();
-    // expected tree sequences
-    let tables2 = TreeSequence::load("./testdata/2.trees")
-        .unwrap()
-        .dump_tables()
-        .unwrap();
+        for intervals in intervals_lst {
+            for seed in [123, 3224] {
+                let (full_trees, exepected) = simulate_two_treesequences(
+                    seqlen,
+                    popsize,
+                    totle_generations,
+                    popsplit_time,
+                    &intervals,
+                    seed,
+                )
+                .unwrap();
 
-    assert!(tables1.equals(&tables2, TableEqualityOptions::all()));
+                let trucated = full_trees
+                    .keep_intervals(intervals.iter().copied(), true)
+                    .unwrap()
+                    .unwrap();
 
-    // test on tables
-    let mut tables1 = TreeSequence::load("./testdata/1.trees")
-        .unwrap()
-        .dump_tables()
-        .unwrap();
-    // run keep_intervals
-    tables1
-        .keep_intervals(
-            vec![(10.0.into(), 40.0.into()), (100.0.into(), 200.0.into())].into_iter(),
-            true,
-        )
-        .unwrap();
-    // expected tree sequences
-    let tables2 = TreeSequence::load("./testdata/3.trees")
-        .unwrap()
-        .dump_tables()
-        .unwrap();
+                let res = trucated.dump_tables().unwrap().equals(
+                    &exepected.dump_tables().unwrap(),
+                    TableEqualityOptions::all(),
+                );
 
-    assert!(tables1.equals(&tables2, TableEqualityOptions::all()));
-
-    // test on treeseq
-    let ts1 = TreeSequence::load("./testdata/1.trees")
-        .unwrap()
-        .keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true)
-        .unwrap();
-    let ts2 = TreeSequence::load("./testdata/2.trees").unwrap();
-    ts1.dump_tables()
-        .unwrap()
-        .equals(&ts2.dump_tables().unwrap(), TableEqualityOptions::all());
-
-    let ts1 = TreeSequence::load("./testdata/1.trees")
-        .unwrap()
-        .keep_intervals(
-            vec![(10.0.into(), 40.0.into()), (100.0.into(), 200.0.into())].into_iter(),
-            true,
-        )
-        .unwrap();
-    let ts3 = TreeSequence::load("./testdata/3.trees").unwrap();
-    ts1.dump_tables()
-        .unwrap()
-        .equals(&ts3.dump_tables().unwrap(), TableEqualityOptions::all());
+                assert!(res);
+            }
+        }
+    }
 }

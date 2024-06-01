@@ -32,6 +32,7 @@ use crate::TskReturnValue;
 use crate::{EdgeId, NodeId};
 use ll_bindings::tsk_id_t;
 use ll_bindings::tsk_size_t;
+use streaming_iterator::StreamingIterator;
 
 /// A table collection.
 ///
@@ -1379,30 +1380,51 @@ impl TableCollection {
 
     /// Truncate the Table Collection to specified genome intervals.
     ///
-    /// # Error
-    /// Any errors from the C API propagate. An [TskitError::RangeError] will
-    /// occur when `intervals` are not sorted.
+    /// # Return
+    /// - `Ok(None)`: when truncation leads to empty edge table.
+    /// - `Ok(Some(TableCollection))`: when trunction is successfully performed
+    /// and results in non-empty edge table.
+    /// - `Error(TskitError)`: Any errors from the C API propagate. An
+    /// [TskitError::RangeError] will occur when `intervals` are not sorted.
     ///
     /// # Example
     /// ```rust
-    /// use tskit::TreeSequence;
-    /// let mut tables = TreeSequence::load("./testdata/1.trees")
+    /// # use tskit::test_data::simulation::simulate_two_treesequences;
+    /// # let intervals = vec![(10.0, 20.0), (700.0, 850.0)];
+    /// # let seqlen = 100.0;
+    /// # let popsize = 100;
+    /// # let totle_generations = 50;
+    /// # let popsplit_time = 10;
+    /// # let seed = 123;
+
+    /// # let (full_trees, _exepected) = simulate_two_treesequences(
+    /// #     seqlen,
+    /// #     popsize,
+    /// #     totle_generations,
+    /// #     popsplit_time,
+    /// #     &intervals,
+    /// #     seed,
+    /// # )
+    /// # .unwrap();
+    /// #
+    /// # let tables = full_trees.dump_tables().unwrap();
+    ///
+    /// let _trucated_tables = tables
+    ///     .keep_intervals(intervals.iter().map(|a| *a), true)
     ///     .unwrap()
-    ///     .dump_tables()
-    ///     .unwrap();
-    /// tables
-    ///     .keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true)
     ///     .unwrap();
     /// ```
     ///
     /// Note that no new provenance will be appended.
-    pub fn keep_intervals(
-        &mut self,
-        intervals: impl Iterator<Item = (Position, Position)>,
+    pub fn keep_intervals<P>(
+        self,
+        intervals: impl Iterator<Item = (P, P)>,
         simplify: bool,
-    ) -> Result<(), TskitError> {
-        use streaming_iterator::StreamingIterator;
-
+    ) -> Result<Option<Self>, TskitError>
+    where
+        P: Into<Position>,
+    {
+        let mut tables = self;
         // use tables from sys to allow easier process with metadata
         let options = 0;
         let mut new_edges = crate::sys::EdgeTable::new(options)?;
@@ -1411,13 +1433,14 @@ impl TableCollection {
         let mut new_mutations = crate::sys::MutationTable::new(options)?;
 
         // for old site id to new site id mapping
-        let mut site_map = vec![-1i32; self.sites().num_rows().as_usize()];
+        let mut site_map = vec![-1i32; tables.sites().num_rows().as_usize()];
 
         // logicals to indicate whether a site (old) will be kept in new site table
-        let mut keep_sites = vec![false; self.sites().num_rows().try_into()?];
+        let mut keep_sites = vec![false; tables.sites().num_rows().try_into()?];
 
         let mut last_interval = (Position::from(0.0), Position::from(0.0));
         for (s, e) in intervals {
+            let (s, e) = (s.into(), e.into());
             // make sure intervals are sorted
             if (s > e) || (s < last_interval.1) {
                 return Err(TskitError::RangeError(
@@ -1426,13 +1449,13 @@ impl TableCollection {
             }
             keep_sites
                 .iter_mut()
-                .zip(self.sites_iter())
+                .zip(tables.sites_iter())
                 .for_each(|(k, site_row)| {
                     *k = *k || ((site_row.position >= s) && (site_row.position < e));
                 });
 
             // use stream_iter and while-let pattern for easier ? operator within a loop
-            let mut edge_iter = self
+            let mut edge_iter = tables
                 .edges()
                 .lending_iter()
                 .filter(|edge_row| !((edge_row.right <= s) || (edge_row.left >= e)));
@@ -1452,7 +1475,7 @@ impl TableCollection {
                 )?;
             }
 
-            let mut migration_iter = self
+            let mut migration_iter = tables
                 .migrations()
                 .lending_iter()
                 .filter(|mrow| !!((mrow.right <= s) || (mrow.left >= e)));
@@ -1471,7 +1494,7 @@ impl TableCollection {
         }
 
         let mut running_site_id = 0;
-        let mut site_iter = self.sites().lending_iter();
+        let mut site_iter = tables.sites().lending_iter();
         while let Some(site_row) = site_iter.next() {
             let old_id = site_row.id.to_usize().unwrap();
             if keep_sites[old_id] {
@@ -1486,19 +1509,22 @@ impl TableCollection {
         }
 
         // build mutation_map
-        let mutation_map = {
-            let mut v = Vec::with_capacity(keep_sites.len());
+        let mutation_map: Vec<_> = {
             let mut n = 0;
-            self.mutations().site_slice().iter().for_each(|site| {
-                if keep_sites[site.as_usize()] {
-                    n += 1
-                };
-                v.push(n - 1);
-            });
-            v
+            tables
+                .mutations()
+                .site_slice()
+                .iter()
+                .map(|site| {
+                    if keep_sites[site.as_usize()] {
+                        n += 1
+                    };
+                    n - 1
+                })
+                .collect()
         };
 
-        let mut mutations_iter = self.mutations().lending_iter();
+        let mut mutations_iter = tables.mutations().lending_iter();
         while let Some(mutation_row) = mutations_iter.next() {
             let old_id = mutation_row.site.to_usize().unwrap();
             if keep_sites[old_id] {
@@ -1528,20 +1554,25 @@ impl TableCollection {
         let new_sites = SiteTable::new_from_table(new_sites.as_mut())?;
 
         // replace old tables with new tables
-        self.set_edges(&new_edges).map(|_| ())?;
-        self.set_migrations(&new_migrations).map(|_| ())?;
-        self.set_mutations(&new_mutations).map(|_| ())?;
-        self.set_sites(&new_sites)?;
+        tables.set_edges(&new_edges).map(|_| ())?;
+        tables.set_migrations(&new_migrations).map(|_| ())?;
+        tables.set_mutations(&new_mutations).map(|_| ())?;
+        tables.set_sites(&new_sites)?;
 
         // sort tables
-        self.full_sort(TableSortOptions::default())?;
+        tables.full_sort(TableSortOptions::default())?;
 
         // simplify tables
         if simplify {
-            let samples = self.samples_as_vector();
-            self.simplify(samples.as_slice(), SimplificationOptions::default(), false)?;
+            let samples = tables.samples_as_vector();
+            tables.simplify(samples.as_slice(), SimplificationOptions::default(), false)?;
         }
 
-        Ok(())
+        // return None when edge table is empty
+        if tables.edges().num_rows() == 0 {
+            Ok(None)
+        } else {
+            Ok(Some(tables))
+        }
     }
 }

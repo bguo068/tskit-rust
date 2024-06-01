@@ -352,20 +352,47 @@ impl TreeSequence {
     ///
     /// # Example
     /// ```rust
-    /// use tskit::TreeSequence;
-    /// let mut ts = TreeSequence::load("testdata/1.trees").expect("error loading ts");
-    /// let new_ts = ts.keep_intervals(vec![(10.0.into(), 130.0.into())].into_iter(), true).unwrap();
+    /// # use tskit::test_data::simulation::simulate_two_treesequences;
+    /// # let intervals = vec![(10.0, 20.0), (700.0, 850.0)];
+    /// # let seqlen = 100.0;
+    /// # let popsize = 100;
+    /// # let totle_generations = 50;
+    /// # let popsplit_time = 10;
+    /// # let seed = 123;
+
+    /// # let (full_trees, _exepected) = simulate_two_treesequences(
+    /// #     seqlen,
+    /// #     popsize,
+    /// #     totle_generations,
+    /// #     popsplit_time,
+    /// #     &intervals,
+    /// #     seed,
+    /// # )
+    /// # .unwrap();
+    ///
+    /// let _trucated_trees = full_trees
+    ///     .keep_intervals(intervals.into_iter(), true)
+    ///     .unwrap()
+    ///     .unwrap();
     /// ```
     ///
     /// Note that no new provenance will be appended.
-    pub fn keep_intervals(
+    pub fn keep_intervals<P>(
         self,
-        intervals: impl Iterator<Item = (Position, Position)>,
+        intervals: impl Iterator<Item = (P, P)>,
         simplify: bool,
-    ) -> Result<Self, TskitError> {
-        let mut tables = self.dump_tables()?;
-        tables.keep_intervals(intervals, simplify)?;
-        Self::new(tables, TreeSequenceFlags::default().build_indexes())
+    ) -> Result<Option<Self>, TskitError>
+    where
+        P: Into<Position>,
+    {
+        let tables = self.dump_tables()?;
+        match tables.keep_intervals(intervals, simplify) {
+            Ok(Some(tables)) => {
+                Self::new(tables, TreeSequenceFlags::default().build_indexes()).map(Some)
+            }
+            Ok(None) => Ok(None),
+            Err(e) => Err(e),
+        }
     }
 
     #[cfg(feature = "provenance")]

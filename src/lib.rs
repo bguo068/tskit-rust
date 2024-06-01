@@ -177,4 +177,5 @@ mod tests {
 }
 
 // Testing modules
+pub mod test_data;
 mod test_fixtures;
