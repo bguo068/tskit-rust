@@ -464,55 +464,52 @@ mod keep_intervals {
     use super::simulation::simulate_two_treesequences;
 
     #[test]
-    fn test_keep_intervals() {
-        // tests for invalid intervals
+    fn test_keep_intervals_invalid_input() {
         let intervals_lst = vec![
             vec![(20.0, 10.0)],               // out of order
             vec![(10.0, 20.0), (19.0, 30.0)], // overlapping intervals
         ];
         for intervals in intervals_lst {
+            // an empty tablecollection is enough here
             let mut tables = TableCollection::new(100.0).unwrap();
             tables.build_index().unwrap();
-            let opts = TreeSequenceFlags::default();
-            let trees = TreeSequence::new(tables, opts).unwrap();
+            let flags = TreeSequenceFlags::default();
+            let trees = TreeSequence::new(tables, flags).unwrap();
             let res = trees.keep_intervals(intervals.into_iter(), true);
             assert!(res.is_err());
         }
+    }
 
-        // tests for valid intervals
+    #[test]
+    fn test_keep_intervals() {
+        let seqlen = 1000.0;
         let intervals_lst = vec![
-            vec![(1001.0, 1002.0)],             // out of range: > seqlen
+            vec![(seqlen + 1.0, seqlen + 2.0)], // out of range: > seqlen
             vec![(10.0, 20.0), (700.0, 850.0)], // multiple intervals
             vec![(10.0, 20.0)],                 // single intervals
         ];
-        let seqlen = 1000.0;
         let popsize = 50;
-        let total_generations = 300;
-        let popsplit_time = 20;
+        let total_time = 300;
+        let split_time = 20;
 
         for intervals in intervals_lst {
             for seed in [123, 3224] {
                 let (full_trees, exepected) = simulate_two_treesequences(
-                    seqlen,
-                    popsize,
-                    total_generations,
-                    popsplit_time,
-                    &intervals,
-                    seed,
+                    seqlen, popsize, total_time, split_time, &intervals, seed,
                 )
                 .unwrap();
 
                 if exepected.edges().num_rows() > 0 {
-                    let trucated = full_trees
+                    let truncated = full_trees
                         .keep_intervals(intervals.iter().copied(), true)
                         .expect("error")
                         .expect("empty table");
 
-                    let res = trucated.dump_tables().unwrap().equals(
-                        &exepected.dump_tables().unwrap(),
-                        TableEqualityOptions::all(),
-                    );
+                    // dump tables for comparision
+                    let truncated = truncated.dump_tables().unwrap();
+                    let expected = exepected.dump_tables().unwrap();
 
+                    let res = truncated.equals(&expected, TableEqualityOptions::all());
                     assert!(res);
                 } else {
                     let trucated = full_trees
