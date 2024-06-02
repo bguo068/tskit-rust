@@ -465,8 +465,23 @@ mod keep_intervals {
 
     #[test]
     fn test_keep_intervals() {
+        // tests for invalid intervals
         let intervals_lst = vec![
-            vec![(1001.0, 1002.0)],             // > seqlen
+            vec![(20.0, 10.0)],               // out of order
+            vec![(10.0, 20.0), (19.0, 30.0)], // overlapping intervals
+        ];
+        for intervals in intervals_lst {
+            let mut tables = TableCollection::new(100.0).unwrap();
+            tables.build_index().unwrap();
+            let opts = TreeSequenceFlags::default();
+            let trees = TreeSequence::new(tables, opts).unwrap();
+            let res = trees.keep_intervals(intervals.into_iter(), true);
+            assert!(res.is_err());
+        }
+
+        // tests for valid intervals
+        let intervals_lst = vec![
+            vec![(1001.0, 1002.0)],             // out of range: > seqlen
             vec![(10.0, 20.0), (700.0, 850.0)], // multiple intervals
             vec![(10.0, 20.0)],                 // single intervals
         ];
