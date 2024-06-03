@@ -455,13 +455,38 @@ pub mod simulation {
 
         Ok((full_trees, truncated_trees))
     }
+
+    pub fn simulate_simple_treesequence() -> TreeSequence {
+        let snode = NodeFlags::new_sample();
+        let anode = NodeFlags::default();
+        let pop = PopulationId::NULL;
+        let ind = IndividualId::NULL;
+        let seqlen = 100.0;
+        let (t0, t10) = (0.0, 10.0);
+        let (left, right) = (0.0, 100.0);
+
+        let sim_opts = SimplificationOptions::default();
+        let mut tables = TableCollection::new(seqlen).unwrap();
+        let child1 = tables.add_node(snode, t0, pop, ind).unwrap();
+        let child2 = tables.add_node(snode, t0, pop, ind).unwrap();
+        let parent = tables.add_node(anode, t10, pop, ind).unwrap();
+        tables.add_edge(left, right, parent, child1).unwrap();
+        tables.add_edge(left, right, parent, child2).unwrap();
+
+        tables.full_sort(TableSortOptions::all()).unwrap();
+        tables.simplify(&[child1, child2], sim_opts, false).unwrap();
+        tables.build_index().unwrap();
+
+        let flags = TreeSequenceFlags::default();
+        TreeSequence::new(tables, flags).unwrap()
+    }
 }
 
 #[cfg(test)]
 mod keep_intervals {
     use crate::*;
 
-    use super::simulation::simulate_two_treesequences;
+    use super::simulation::{simulate_simple_treesequence, simulate_two_treesequences};
 
     #[test]
     fn test_keep_intervals_invalid_input() {
@@ -470,11 +495,7 @@ mod keep_intervals {
             vec![(10.0, 20.0), (19.0, 30.0)], // overlapping intervals
         ];
         for intervals in intervals_lst {
-            // an empty tablecollection is enough here
-            let mut tables = TableCollection::new(100.0).unwrap();
-            tables.build_index().unwrap();
-            let flags = TreeSequenceFlags::default();
-            let trees = TreeSequence::new(tables, flags).unwrap();
+            let trees = simulate_simple_treesequence();
             let res = trees.keep_intervals(intervals.into_iter(), true);
             assert!(res.is_err());
         }
