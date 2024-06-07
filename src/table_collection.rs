@@ -1377,14 +1377,18 @@ impl TableCollection {
         self.inner.as_mut_ptr()
     }
 
-    /// Truncate the Table Collection to specified genome intervals.
+    /// Truncate the [TableCollection] to specified genome intervals.
     ///
     /// # Return
     /// - `Ok(None)`: when truncation leads to empty edge table.
     /// - `Ok(Some(TableCollection))`: when trunction is successfully performed
     /// and results in non-empty edge table.
     /// - `Error(TskitError)`: Any errors from the C API propagate. An
-    /// [TskitError::RangeError] will occur when `intervals` are not sorted.
+    /// [TskitError::RangeError] will occur when `intervals` are not
+    /// sorted. Note that as `tskit` currently does not support `simplify`
+    /// on [TableCollection] with a non-empty migration table, calling
+    /// `keep_intervals` on those [TableCollection] with `simplify` set to
+    /// `true` will return an error.
     ///
     /// # Example
     /// ```rust

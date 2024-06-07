@@ -344,11 +344,17 @@ impl TreeSequence {
         ))
     }
 
-    /// Truncate the TreeSequence to specified genome intervals.
+    /// Truncate the [TreeSequence] to specified genome intervals.
     ///
-    /// # Error
-    /// Any errors from the C API propagate. An [TskitError::RangeError] will
-    /// occur when `intervals` are not sorted.
+    /// - `Ok(None)`: when truncation leads to empty edge table.
+    /// - `Ok(Some(TableCollection))`: when trunction is successfully performed
+    /// and results in non-empty edge table.
+    /// - `Error(TskitError)`: Any errors from the C API propagate. An
+    /// [TskitError::RangeError] will occur when `intervals` are not
+    /// sorted. Note that as `tskit` currently does not support `simplify`
+    /// on [TreeSequence] with a non-empty migration table, calling
+    /// `keep_intervals` on those [TreeSequence] with `simplify` set to `true`
+    /// will return an error.
     ///
     /// # Example
     /// ```rust

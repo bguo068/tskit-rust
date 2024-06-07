@@ -456,7 +456,7 @@ pub mod simulation {
         Ok((full_trees, truncated_trees))
     }
 
-    pub fn simulate_simple_treesequence() -> TreeSequence {
+    pub fn generate_simple_treesequence(add_migration_records: bool) -> TreeSequence {
         let snode = NodeFlags::new_sample();
         let anode = NodeFlags::default();
         let pop = PopulationId::NULL;
@@ -475,6 +475,21 @@ pub mod simulation {
 
         tables.full_sort(TableSortOptions::all()).unwrap();
         tables.simplify(&[child1, child2], sim_opts, false).unwrap();
+
+        // add migration records after simplification to avoid errors when
+        // simplifying a treesequence that contains a nonempty migration table
+        if add_migration_records {
+            let pop_anc = tables.add_population().unwrap();
+            let pop_1 = tables.add_population().unwrap();
+            let pop_2 = tables.add_population().unwrap();
+            tables
+                .add_migration((0.0, 10.0), child1, (pop_anc, pop_1), t0 + 1.0)
+                .unwrap();
+            tables
+                .add_migration((10.0, 40.0), child2, (pop_anc, pop_2), t0 + 5.0)
+                .unwrap();
+        }
+
         tables.build_index().unwrap();
 
         let flags = TreeSequenceFlags::default();
@@ -486,7 +501,7 @@ pub mod simulation {
 mod keep_intervals {
     use crate::*;
 
-    use super::simulation::{simulate_simple_treesequence, simulate_two_treesequences};
+    use super::simulation::{generate_simple_treesequence, simulate_two_treesequences};
 
     #[test]
     fn test_keep_intervals_invalid_input() {
@@ -495,10 +510,40 @@ mod keep_intervals {
             vec![(10.0, 20.0), (19.0, 30.0)], // overlapping intervals
         ];
         for intervals in intervals_lst {
-            let trees = simulate_simple_treesequence();
+            let add_migration_table = false;
+            let trees = generate_simple_treesequence(add_migration_table);
             let res = trees.keep_intervals(intervals.into_iter(), true);
             assert!(res.is_err());
         }
+    }
+
+    #[test]
+    fn test_keep_intervals_nonempty_migration_table() {
+        let intervals = [(10.0, 20.0)];
+
+        let add_migration_table = true;
+        let to_simply = true;
+        let trees = generate_simple_treesequence(add_migration_table);
+        let res = trees.keep_intervals(intervals.iter().copied(), to_simply);
+        assert!(res.is_err());
+
+        let add_migration_table = true;
+        let to_simply = false;
+        let trees = generate_simple_treesequence(add_migration_table);
+        let res = trees.keep_intervals(intervals.iter().copied(), to_simply);
+        assert!(res.is_ok());
+
+        let add_migration_table = false;
+        let to_simply = true;
+        let trees = generate_simple_treesequence(add_migration_table);
+        let res = trees.keep_intervals(intervals.iter().copied(), to_simply);
+        assert!(res.is_ok());
+
+        let add_migration_table = false;
+        let to_simply = false;
+        let trees = generate_simple_treesequence(add_migration_table);
+        let res = trees.keep_intervals(intervals.iter().copied(), to_simply);
+        assert!(res.is_ok());
     }
 
     #[test]
