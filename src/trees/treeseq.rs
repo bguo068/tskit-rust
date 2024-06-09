@@ -367,20 +367,20 @@ impl TreeSequence {
     ///  # let (t0, t10) = (0.0, 10.0);
     ///  # let (left, right) = (0.0, 100.0);
     ///  # let sim_opts = SimplificationOptions::default();
-    ///
+    ///  #
     ///  # let mut tables = TableCollection::new(seqlen).unwrap();
     ///  # let child1 = tables.add_node(snode, t0, pop, ind).unwrap();
     ///  # let child2 = tables.add_node(snode, t0, pop, ind).unwrap();
     ///  # let parent = tables.add_node(anode, t10, pop, ind).unwrap();
-    ///
+    ///  #
     ///  # tables.add_edge(left, right, parent, child1).unwrap();
     ///  # tables.add_edge(left, right, parent, child2).unwrap();
     ///  # tables.full_sort(TableSortOptions::all()).unwrap();
     ///  # tables.simplify(&[child1, child2], sim_opts, false).unwrap();
     ///  # tables.build_index().unwrap();
-    ///
+    ///  #
     ///  # let trees = TreeSequence::new(tables, TreeSequenceFlags::default()).unwrap();
-    ///
+    ///  #
     ///  let intervals = [(0.0, 10.0), (90.0, 100.0)].into_iter();
     ///  trees.keep_intervals(intervals, true).unwrap().unwrap();
     /// ```

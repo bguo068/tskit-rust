@@ -474,7 +474,11 @@ pub mod simulation {
         tables.add_edge(left, right, parent, child2).unwrap();
 
         tables.full_sort(TableSortOptions::all()).unwrap();
-        tables.simplify(&[child1, child2], sim_opts, false).unwrap();
+        let id_map = tables
+            .simplify(&[child1, child2], sim_opts, true)
+            .unwrap()
+            .unwrap()
+            .to_owned();
 
         // add migration records after simplification to avoid errors when
         // simplifying a treesequence that contains a nonempty migration table
@@ -482,11 +486,14 @@ pub mod simulation {
             let pop_anc = tables.add_population().unwrap();
             let pop_1 = tables.add_population().unwrap();
             let pop_2 = tables.add_population().unwrap();
+            // get new ids after simplifcation
+            let child1 = id_map[0];
+            let child2 = id_map[1];
             tables
-                .add_migration((0.0, 10.0), child1, (pop_anc, pop_1), t0 + 1.0)
+                .add_migration((left, right), child1, (pop_anc, pop_1), t0 + 1.0)
                 .unwrap();
             tables
-                .add_migration((10.0, 40.0), child2, (pop_anc, pop_2), t0 + 5.0)
+                .add_migration((left, right), child2, (pop_anc, pop_2), t0 + 5.0)
                 .unwrap();
         }
 
@@ -522,9 +529,9 @@ mod keep_intervals {
         let intervals = [(10.0, 20.0)];
 
         let add_migration_table = true;
-        let to_simply = true;
+        let to_simplify = true;
         let trees = generate_simple_treesequence(add_migration_table);
-        let res = trees.keep_intervals(intervals.iter().copied(), to_simply);
+        let res = trees.keep_intervals(intervals.iter().copied(), to_simplify);
         assert!(res.is_err());
 
         let add_migration_table = true;
