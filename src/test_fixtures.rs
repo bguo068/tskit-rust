@@ -487,8 +487,8 @@ pub mod simulation {
             let pop_1 = tables.add_population().unwrap();
             let pop_2 = tables.add_population().unwrap();
             // get new ids after simplifcation
-            let child1 = id_map[0];
-            let child2 = id_map[1];
+            let child1 = id_map[child1.to_usize().unwrap()];
+            let child2 = id_map[child2.to_usize().unwrap()];
             tables
                 .add_migration((left, right), child1, (pop_anc, pop_1), t0 + 1.0)
                 .unwrap();
